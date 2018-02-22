@@ -1,78 +1,33 @@
 // free-PEMF See: biotronika.pl  biotronics.eu
 // Chris Czoba (c) krzysiek@biotronika.pl
 
-#define HRDW_VER "NANO 4.2"
-#define SOFT_VER "2017-07-28"
-
-#include <EEPROM.h>
-//#include <stdio.h>
-
-//Pin definition
-#define coilPin 5      // Coil driver IRF510
-#define powerPin 4     // Power relay
-#define relayPin 9     // Direction relay
-#define buzzPin 10     // Buzzer
-#define btnPin 3       // Power On-Off / Pause / Change program button 
-#define redPin 12      // Red LED
-#define greenPin 11    // Green LED
-#define hrmPin 2       // Biofeedback HR meter on 3th plug pin.
-
-//Battery staff
-#define batPin A7                               // Analog-in battery level 
-#define BATTERY_VOLTAGE_RATIO 0.153             // nclude div 10k/4,7k resistors. 5V*(10k+4,7k)/4,7k = 0,0153 (x10)
-#define EEPROM_BATTERY_CALIBRATION_ADDRESS 1023 // Memory address of battery correction factor - 100 means RATIO x 1,00
-#define MIN_BATTERY_LEVEL 90                    // 90 means 9.0 V  (x10), less then that turn off
-#define USB_POWER_SUPPLY_LEVEL 65               // Maximum usb voltage level means 6.5V
+//#define SERIAL_DEBUG
 
 
-//BIOzap
-#define WELCOME_SCR "Free BIOzap interpreter welcome! See http://biotronika.pl"
-#define PROGRAM_SIZE 1000   // Maximum program size
-#define PROGRAM_BUFFER 500  // SRAM buffer size, used for script loading
-#define MAX_CMD_PARAMS 3    // Count of command params 
-#define LCD_SCREEN_LINE -1  // LCD user line number, -1 = no lcd
-#define MIN_FREQ_OUT 1      //  0.01 Hz
-#define MAX_FREQ_OUT 5000   // 50.00 Hz
-#define SCAN_STEPS 100      // For scan function puropose - default steps
-#define XON 17  //0x11
-#define XOFF 19 //0x13
-
-//BIOzap
-String inputString = "";                // a string to hold incoming serial data
-String param[MAX_CMD_PARAMS];           // param[0] = cmd name
-boolean stringComplete = false;         // whether the string is complete
-boolean memComplete = false;
-unsigned long lastFreq = MIN_FREQ_OUT;  // Uses scan function
-int minBatteryLevel = 0; 
-boolean Xoff = false;
+#define HRDW_VER "NANO 5.0"
+#define SOFT_VER "2018-02-22"
+#include "freePEMF_func.h"
 
 
-const unsigned long checkDeltaBatteryIncreasingVoltageTime = 600000UL;  // During charging battery minimum inreasing voltage after x millisecounds. 
-                                                                        //  If after the x period the same voltage, green led starts lights. 
-const unsigned long pauseTimeOut = 600000UL;                            // 600000 Time of waiting in pause state as turn power off. (60000 = 1 min.)
-const unsigned int btnTimeOut = 5000UL;                                 // Choose therapy program time out. Counted form released button.
-boolean outputDir = false;
-byte coilState = LOW;
-unsigned long pauseTime =0; 
- 
-volatile boolean pause = false; // true = pause on
-unsigned long pressTime = 0;    // Time of pressing the button
-unsigned long startInterval;    // For unused timeout off.
-byte programNo = 1;             // 0 = PC connection, 1= first program etc.
-byte hr = 0;                    // User pulse from hrmPin
 
-//Serial buffer
-//char *memBuffer; 
-char memBuffer[PROGRAM_BUFFER];
+void btnEvent() {
+    //Change button state interruption
+    //unsigned long pressTime =0;
 
-//function prototypes
-int readEepromLine(int fromAddress, String &lineString);
-void getParams(String &inputString);
-void executeCmd(String cmdLine, boolean directMode = false);
-void eepromUpload(int adr = 0);
-boolean readSerial2Buffer(int &endBuffer);
+    if (digitalRead(btnPin)==HIGH){
+        pressTime = millis(); //Specific use of millis(). No increment in innteruption function.
+    } else {
+        if (pressTime && (millis() - pressTime > 50)) pause=!pause;
+        if (pressTime && (millis() - pressTime > 1000)) {
+            for(unsigned int i=0; i<50000; i++) digitalWrite(buzzPin, HIGH); //Cannot use delay() therefore beep() function in innteruption
+            digitalWrite(buzzPin, LOW);
+            off();
+        }
+        pressTime = 0;
+    }
+}
 
- 
+
 void setup() {  
               
   // Initialize the digital pin as an in/output
@@ -92,6 +47,8 @@ void setup() {
   inputString.reserve(65); //NANO serial buffer has 63 bytes
 
   
+  pcConnection = (bat() < USB_POWER_SUPPLY_LEVEL);
+
   if (bat() < USB_POWER_SUPPLY_LEVEL) { 
     //Detected USB PC connection
 
@@ -126,7 +83,7 @@ void setup() {
         digitalWrite(greenPin, HIGH);
         digitalWrite(powerPin, HIGH);
         delay(50);
-        executeCmd("exe\n",true); //default programNo;
+        executeCmd("exe\n"); //default programNo;
         digitalWrite(powerPin, LOW);
         delay(10000);
       }
@@ -208,7 +165,6 @@ void setup() {
     Serial.print(HRDW_VER);
     Serial.print(" ");
     Serial.println(SOFT_VER);
-    
     Serial.print('>');  
     
     // Configure button interrupt for using off option
@@ -230,62 +186,23 @@ void loop() {
       if ((byte)EEPROM.read(0)!=255 && (byte)EEPROM.read(0)!=0) {
         //User program execute
    
-        executeCmd("exe\n",true);
+        executeCmd("exe\n");
         off();
         
       } else {
         //Standard program execute
-          
-        rec(1179, 120); //2 min   11,79Hz Earth geomagnetic field
-        chp(1);
-        rec( 783, 120); //2 min    7,83 Schuman    
-        chp(0);      
-        rec(2000,  60); //2min    20,0  Capillary (ukł. krwinośny) 
-        chp(1);
-        rec(1500,  60); //2min    15,0  Capillary   
-        chp(0);
-        rec(1000,  90); //1:30min 10,0  Ligament (wiązadła)
-        chp(1);
-        rec( 700,  90); //1:30min  7,0  Bone (kości)   
-        chp(0);
-        rec( 200, 120); //2min     2,0  Nerve 
-        beep(500);
-        off();
+    	 executeCmd("prog 1\n");
       }
       break;
       
     case 2:
     //Earth regeneration - 8 minutes
-      
-      rec(1179,120); //4 min 11,79Hz Earth geomagnetic field
-      chp(1);
-      rec(1179,120); 
-      chp(0);
-      rec(783, 120); //4 min 7,83 Schumanns resonance    
-      chp(1);
-      rec(783, 120); 
-      beep(500);
-      off();
-      break;
-
+    	executeCmd("prog 2\n");
+    	break;
     case 3:
     // Antistress & meditation (without feedback)
-    
-      // 16 min
-      rec( 1179, 120); //2 min 11,79Hz Earth geomagnetic field
-      chp(1);
-      rec( 1200,  10); //4 min 12->8Hz  Alpha
-      scan( 800, 230); 
-      chp(0);
-      rec(  783, 120); //2 min  7,83 Schumanns resonance
-      chp (1);
-      rec(  800,  10);
-      scan( 400, 230);  //4 min 8->4 Theta
-      chp (0);
-      scan( 100, 240);  //4 min 4->0,5  Delta
-      beep(500);
-      off();
-      break;
+    	executeCmd("prog 3\n");
+    	break;
 
     case 4:
       digitalWrite(redPin, LOW);
@@ -322,7 +239,7 @@ void loop() {
         //Restart timeout interval to turn off. 
         startInterval=millis();       
         
-        executeCmd(inputString, true);
+        executeCmd(inputString);
         Serial.print('>'); //Currsor for new command
 
         // clear the command string
@@ -336,638 +253,6 @@ void loop() {
   if (millis()-startInterval > pauseTimeOut) off();
 } 
 
-
-///////////////  BIOzap BEGINING  ///////////////////
-
-String formatLine(int adr, String line){
-  String printLine;
-  printLine.reserve(22);
-  printLine = "000"+String(adr,DEC);
-  printLine = printLine.substring(printLine.length()-3,  printLine.length());
-  printLine+=": "+line; //end marker for appending program
-  return printLine;
-}
-
-void executeCmd(String cmdLine, boolean directMode){
-  // Main interpreter function
-  //digitalWrite(powerPin, HIGH);
-  getParams(cmdLine);
-
-
-    if ( param[0]=="mem" ) { 
-// Upload terapy to EEPROM
-      
-      if (param[1]=="\0") {
-        eepromUpload();
-     
-      } else if (param[1]=="@") {
-        //Find script end  
-        int endAdr=0;
-        for (int i=0; i<PROGRAM_SIZE; i++){
-          if ((byte)EEPROM.read(i)==255 || (char)EEPROM.read(i)=='@'){
-            endAdr=i;
-            
-            break;
-          }    
-        }
-        Serial.println(formatLine(endAdr,"appendin from..."));
-        eepromUpload(endAdr);   
-        
-      } else if (param[1].toInt()>0 && param[1].toInt()<PROGRAM_SIZE) {
-        eepromUpload(param[1].toInt());         
-      } else {
-        Serial.print("Error: unknow parametr "); 
-        Serial.println(param[1]);
-      }
-        
-    } else if ( param[0]=="ls" ) {
-//List terapy
-
-      if (param[1]=="-n") {
-        Serial.println("Adr  Command");
-        int adr=0;
-        int endLine;
-        String line;
-
-        while ((endLine = readEepromLine(adr,line)) && (adr<PROGRAM_SIZE) ){
-          //if (line.charAt(0)=='@') break;
-           
-          Serial.print(formatLine(adr,line));
-          adr = adr + endLine;
-       }
-       
-       //End marker informs an user where start append program 
-       if (adr<PROGRAM_SIZE) Serial.println(formatLine(adr,"@")); 
-          
-      } else {
-      
-        for(int i=0; i<PROGRAM_SIZE; i++){
-          char eeChar=(char)EEPROM.read(i);
-          if ((eeChar=='@') || (eeChar==char(255))) break;
-          //if (eeChar==char(255)) break;
-          Serial.print(eeChar);
-        }
-      }
-    
-    } else if (param[0].charAt(0)=='#') {
-// Comment
-      
-      ;
-
-    } else if (param[0]==""){
-// Emptyline
-      
-      ;    
-
-    } else if (param[0]=="rm"){
-      // Remove, clear terapty
-      
-      for(int i=0; i<PROGRAM_SIZE; i++){
-        EEPROM.put(i, 255);  
-        if (!(i % 128)) Serial.print(".");
-      }
-      Serial.println("OK");
-
-    } else if (param[0]=="print"){
-// Print command
-      
-      if (cmdLine.length()>6) {
-        Serial.println(cmdLine.substring(6,cmdLine.length()-1));
-      } else {
-        Serial.println();
-      }
-      
-    } else if (param[0]=="bat"){
-// Print baterry voltage
-      
-        //Serial.println( int(analogRead(batPin)*BATTERY_VOLTAGE_RATIO));
-        Serial.println(bat());
-
-    } else if (param[0]=="cbat"){
-// Calibrate battery voltage
-      
-        //Correction factor
-        byte i = 100 * param[1].toInt()/(int(analogRead(batPin)*BATTERY_VOLTAGE_RATIO));
-       
-        EEPROM.put(EEPROM_BATTERY_CALIBRATION_ADDRESS, i);
-        Serial.println("OK");
-   
-    } else if (param[0]=="hr"){
-// Print heart rate
-      
-        Serial.println(hr);
-
-    } else if (param[0]=="beep"){
-// Beep [time_ms]
-        
-        beep(param[1].toInt());
-        Serial.println("OK");
-
-    } else if (param[0]=="off"){
-// Turn off 
-
-      off();
-
-    } else if (param[0]=="chp"){
-// Change output signal polarity
-    
-      //chp(byte(param[1].toInt()));
-      chp(byte(param[1].toInt()));
-      Serial.println("OK");
-
-    } else if (param[0]=="wait"){
-// Wait millis
-        
-      wait(param[1].toInt());
-      Serial.println("OK");
-
-    } else if (param[0]=="rec"){
-// Generate rectangle signal - rec [freq] [time_sec]
-      
-      rec(param[1].toInt(), param[2].toInt());
-      Serial.println("OK");
-
-    } else if (param[0]=="scan"){
-      // Scan from lastFreq  - scan [freq to] [time_ms]
-      
-      scan(param[1].toInt(), param[2].toInt());
-      Serial.println("OK");
-
-      //void scan(unsigned int freq, unsigned long period){
-
-    } else if (param[0]=="exe"){
-      // Execute eeprom program only in direc mode
-      if ( directMode) { 
-        exe();
-      } else {
-        Serial.println("Error: can't execute program from eeprom program!");
-      }
-      //param[0]="";
-
-    }  else {
-//Unknown command
-      Serial.println("Unknown command: "+param[0]);         
-    }
-    
-
-}
-
-void exe(){
-  //Execute program 
-  
-  int adr=0;
-  String line;
-  while (int endLine = readEepromLine(adr,line)){
-
-    Serial.print("executing: ");
-    Serial.print(line);  
-
-    executeCmd(line);
-    adr = adr + endLine;
-  }
-       
-  Serial.println("Script done."); 
-  Serial.println("OK"); 
-}
-
-void scan(unsigned long freq, unsigned long period){
-  // Scan from lastFreq to freq used SCAN_STEPS by period
-  
-  long scanSteps=SCAN_STEPS;
-
-  
-  long stepPeriod = period /scanSteps;
-  if (stepPeriod < 1) {
-    scanSteps = period;
-    stepPeriod=1;
-  }
-  long startFreq = lastFreq;
-  long stepFreq = long( constrain(freq, MIN_FREQ_OUT, MAX_FREQ_OUT) - lastFreq ) / scanSteps;
-/*
-  Serial.println(freq);
-  Serial.println(lastFreq);
-  Serial.println(long(freq-lastFreq));
-  Serial.println(startFreq);  
-  Serial.println(stepPeriod);
-  Serial.println(scanSteps);
-  Serial.println(stepFreq);
-*/  
-
-  for (int i=0; i<scanSteps; i++) {
-    rec(startFreq+(i*stepFreq), stepPeriod);
-  }
-}
-
-
-void rec(unsigned int freq, unsigned long period) {
-  //Rectangle signal generate, freq=783 for 7.83Hz, period in secounds
-
-  lastFreq =constrain( freq, MIN_FREQ_OUT, MAX_FREQ_OUT) ; //For scan() function puropose
-  
-  unsigned long interval = 50000/constrain(freq, MIN_FREQ_OUT, MAX_FREQ_OUT);   
-  unsigned long timeUp = millis() + (period*1000);
-
-  unsigned long serialStartPeriod = millis();
-  unsigned long startInterval = millis();
-  unsigned long pausePressed;
-
-  while(millis()< timeUp) {
-      //time loop
-      
-      if ((millis() - startInterval) >= interval) {
-
-        //Save start time interval 
-        startInterval = millis();
-        
-        if (coilState == LOW) {
-          coilState = HIGH;
-        } else {
-          coilState = LOW;
-        }
-        
-        digitalWrite(coilPin, coilState);   // turn coil on/off 
-        digitalWrite(greenPin, coilState);   // turn LED on/off
-      }
-
-      checkBattLevel(); //If too low then off
-
-      //TODO serial break command - mark @
-
-      if (pause) {
-        //Pause - button pressed
-          
-          pausePressed = millis();
-          beep(200);
-          digitalWrite(coilPin, LOW);     // turn coil ooff 
-          digitalWrite(greenPin, HIGH);   // turn LED on
-
-          while (pause){
-            //wait pauseTimeOut or button pressed
-            if (millis()> pausePressed + pauseTimeOut) { 
-               beep(500); 
-               off();
-            } 
-          }
-          beep(200);
-          
-          //Correct working time
-          timeUp += millis()-pausePressed;
-          startInterval += millis()-pausePressed;
-
-
-          //Continue
-          digitalWrite(coilPin, coilState);    // turn coil on
-          digitalWrite(greenPin, coilState);   // turn LED on/      
-      }     
-      
-
-      //count each second
-      if (millis()-serialStartPeriod >= 1000) { //one second
-        Serial.print('.');
-        serialStartPeriod = millis();
-      }
-  }
-  digitalWrite(coilPin, LOW);     // turn coil off 
-  digitalWrite(greenPin, HIGH);   // turn LED on
-
-}
-
-void off() {
-  // Power off function
-  
-  digitalWrite(coilPin, LOW);     // Turn coil off by making the voltage LOW
-  delay(20);
-  digitalWrite(relayPin, LOW);    // Relay off
-  digitalWrite(greenPin, LOW);    // Green LED off
-
-  digitalWrite(powerPin, LOW);  // Turn power off //If not USB power
-
-  while(digitalRead(btnPin)==HIGH); // Wait because still power on
-
-  //If USB PC connection is pluged microcontroller cannot turn power off
-  //detachInterrupt(digitalPinToInterrupt(btnPin));
-  
-  while(1); //forever loop
-  
-}
-
-void chp(byte outputDir){
-  //Change output polarity
-
-  digitalWrite(coilPin, LOW);  // turning coil off
-  if (outputDir) {
-    digitalWrite(relayPin, HIGH); // turn relay on 
-  } else {
-    digitalWrite(relayPin, LOW); // turn relay off 
-  }
-  
-}
-
-int bat() {
-  // Get battery voltage function
-  
-  return (  analogRead(batPin) *
-            BATTERY_VOLTAGE_RATIO *
-            (byte)EEPROM.read(EEPROM_BATTERY_CALIBRATION_ADDRESS) /
-            100
-          );  
-}
-
-void wait( unsigned long period) {
-  // wait [period_ms]
-
-  unsigned long serialStartPeriod = millis();
-  unsigned long startInterval = millis();    
-  
-  while(millis()-startInterval <= period){
-    //time loop
-      
-    //TODO serial break command - mark @
-          
-    //count each second
-    if (millis()-serialStartPeriod >= 1000) {
-      Serial.print('.');
-      serialStartPeriod = millis();
-    }
-  }
-
-}
-
-void beep( unsigned int period) {
-  // beep [period_ms]
-
-  unsigned long serialStartPeriod = millis();
-  unsigned long startInterval = millis();
-
-  digitalWrite(buzzPin, HIGH);
-  while(millis()-startInterval <= period){
-    //time loop
-
-    //TODO serial break command - mark @
-
-    //count each second
-    if (millis()-serialStartPeriod >= 1000) { //one second
-      Serial.print('.');
-      serialStartPeriod = millis();
-    }
-  }
-    
-  digitalWrite(buzzPin, LOW);
-}
-
-///////////////  BIOzap END  ///////////////////
-
-void checkBattLevel() {
-  //Check battery level
-
-  if ( analogRead(batPin) < minBatteryLevel) { 
-    //Emergency turn off 
-    Serial.println();  
-    Serial.print("Error: battery too low: ");
-    Serial.println(bat());
-    
-      
-    // red LED on
-    digitalWrite(redPin, HIGH);
-    digitalWrite(greenPin, LOW);   
-      
-    // Turn all off
-    digitalWrite(coilPin, LOW);    // Turn coil off by making the voltage LOW
-    digitalWrite(relayPin, LOW);    // Relay off
-        
-    for (int x=0; x<10; x++){
-      digitalWrite(buzzPin, HIGH);   // Turn buzzer on 
-      delay(100); 
-      digitalWrite(buzzPin, LOW);    // Turn buzzer off
-      delay(200); 
-    }
-        
-    beep(500);
-    off();
-  }
-
-}
-
-void rechargeBattery() {
-  //Recharger is pluged 
-  
-  digitalWrite(powerPin, LOW); // turn power relay off
-  digitalWrite(redPin, HIGH);
-  beep(200);
-  digitalWrite(greenPin, LOW);
-      
-  unsigned long startInterval = millis();
-  int startBatLevel = analogRead(batPin);
-
-  do {
-    if ( millis() - startInterval > checkDeltaBatteryIncreasingVoltageTime) {          
-      if (analogRead(batPin)-startBatLevel <= 0) { //no inreasing voltage
-        //Battery rechareged
-
-        digitalWrite(greenPin, HIGH);
-        beep(200);
-        // ... and charege further.
-        while (1);
-      }
- 
-      //Start new charging period with new values
-      startInterval = millis();
-      startBatLevel = analogRead(batPin);
-    }
-  }  while (1); //forever loop
-}
-
-void btnEvent() {
-   //Change button state interruption 
-   //unsigned long pressTime =0;
-   
-  if (digitalRead(btnPin)==HIGH){ 
-    pressTime = millis(); //Specific use of millis(). No increment in innteruption function.
-  } else { 
-    if (pressTime && (millis() - pressTime > 50)) pause=!pause;
-    if (pressTime && (millis() - pressTime > 1000)) { 
-      for(unsigned int i=0; i<50000; i++) digitalWrite(buzzPin, HIGH); //Cannot use delay() therefore beep() function in innteruption
-      digitalWrite(buzzPin, LOW);
-      off(); 
-    } 
-    pressTime = 0;
-  }
-}
-
-
-int readEepromLine(int fromAddress, String &lineString){
-  //Read one line from EEPROM memory
-  int i = 0;
-  lineString="";
-  do {
-    char eeChar=(char)EEPROM.read(fromAddress+i);
-    if ((eeChar==char(255)) ||(eeChar==char('@'))) {
-      if (i>0) {
-        eeChar='\n';
-      } else {
-        i=0;
-        break;
-      }
-    }
-    lineString+=eeChar; 
-    i++;
-    if (eeChar=='\n') break;
-  } while (1);
-  
-  return i;
-}
-
-void getParams(String &inputString){
-  for (int i=0; i<MAX_CMD_PARAMS; i++) param[i]="";
-  
-  int from =0;
-  int to =0;
-  for (int i=0; i<MAX_CMD_PARAMS; i++){
-    to = inputString.indexOf(' ',from); //Wykryj spacje
-   
-    if (to==-1) {
-      to = inputString.indexOf('\n',from); //Wykryj NL #10
-      if (to>0) param[i] = inputString.substring(from,to);
-      param[i].trim();
-      break;
-    }
-
-    if (to>0) param[i] = inputString.substring(from,to);
-    param[i].trim();
-    from = to+1;
-  }
-}
-
-/*
-void eepromUpload(int adr = 0) {
-  unsigned int i = 0;
-  boolean flagCompleted = false;
-
-  while (!flagCompleted){
-    while (Serial.available()) {
-      char inChar = (char)Serial.read();
-      flagCompleted =( !(i<PROGRAM_SIZE) ) || (inChar=='@');
-      if (inChar==';') inChar='\n';   //Semicollon as end line LF (#10)
-      EEPROM.put(i, (byte)inChar);
-      i++;
-    }
-  }
-  if (i<PROGRAM_SIZE) EEPROM.put(i, 255); //End of shorter program then PROGRAM_SIZE size
-}
-*/
-/////////////////////////////////////////////////////////////////////////////
-void serialEvent() {
- //if (!eepromLoad) {
-  while (Serial.available()) {
-    // get the new byte:
-    char inChar = (char)Serial.read();
-    // add it to the inputString:
-    if (inChar!='\r'){
-      inputString += inChar;
-    }
-    
-    Serial.print(inChar); //echo
-
-    // if the incoming character is a newline, set a flag
-    if (inChar == '\n') {
-      stringComplete = true;
-    }
-    
-    if (inChar == '@') {
-      memComplete = true;
-    }
-  }
- //}
-}
-
-void eepromUpload(int adr) {
-  unsigned int i = 0;
-  boolean flagCompleted;
-  boolean Xoff = false;
-  int endBuffer;
-  //eepromLoad = true;
-
-  do { 
-    //Serial.print(char(XON));
-    Xoff = readSerial2Buffer(endBuffer);
-    int b =0; // buffer pointer
-    flagCompleted = false;
-    while (!flagCompleted){
-      
-      flagCompleted = !(i+adr<PROGRAM_SIZE) || (memBuffer[b]=='@') || !(b < endBuffer);
-      if (memBuffer[b]==';') memBuffer[b]='\n';   //Semicollon as end line LF (#10) for windows script
-      if (memBuffer[b]=='\r') memBuffer[b] = ' '; //#13 -> space, No continue because of changing script length 
-      EEPROM.write(i+adr, memBuffer[b]); 
-      //Serial.print(memBuffer[b]);
-      i++; b++;
-    }
-    //End of shorter program then PROGRAM_SIZE size
-    
-  } while (Xoff); 
-  if (i+adr<PROGRAM_SIZE) EEPROM.write(i+adr, 255); 
-  //eepromLoad=false;
-}
-
-boolean readSerial2Buffer(int &endBuffer) {  
-    int i = 0; //buffer indicator
-    char c;
-   
-    boolean Xoff = false;
-    int highBufferLevel = 0.7 * PROGRAM_BUFFER;
-    
-    Serial.write(XON);
-    //Serial.print("\nXON\n");
-
-    while(true) {
-      if (Xoff) {
-        //after send Xoff
-        
-          if (Serial.available()){
-            c = Serial.read();
-            memBuffer[i] = c;
-            //Serial.print(c);
-            endBuffer = i;
-            i++;
-
-          } else {
-            break;
-          };
-           //if (i>= PROGRAM_BUFFER) break;
-         
-
-      } else {
-        //before send Xoff
-          
-          Xoff = (i > highBufferLevel);
-
-          while(!Serial.available());
-
-          c = Serial.read();
-          
-          memBuffer[i] = c;
-          //Serial.print(c);
-          endBuffer = i;
-
-          if (c == '@' ) {
-            break;    
-          }
-          
-          i++;
-          if (Xoff) {
-            for (int j=0; j<64; j++)
-            Serial.write(XOFF);  
-            //Serial._rx_complete_irq();
-            //Serial._tx_udr_empty_irq();
-            //Serial.print("\nXOFF\n");
-          }         
-      }
-      
-      
-      
-    }
-  return Xoff;  
-
-}
 
 
 
