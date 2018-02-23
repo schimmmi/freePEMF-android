@@ -850,56 +850,66 @@ void getParams(String &inputString) {
 
 
 void checkBattLevel() {
-    //Check battery level
+  //Check battery level
 
-    if (analogRead( (unsigned char)batPin) < MIN_BATTERY_LEVEL /*minBatteryLevel*/) {
-        //Emergency turn off
+  if ( analogRead((unsigned char)batPin) < minBatteryLevel) {
+    //Emergency turn off
+    Serial.println();
+    Serial.print("Error: battery too low: ");
+    Serial.println(bat());
 
 
+    // red LED on
+    digitalWrite(redPin, HIGH);
+    digitalWrite(greenPin, LOW);
 
-        for (int x = 0; x < 10; x++) {
-            digitalWrite(buzerPin, HIGH);   // Turn buzzer on
-            delay(100);
-            digitalWrite(buzerPin, LOW);    // Turn buzzer off
-            delay(200);
-        }
+    // Turn all off
+    digitalWrite(coilPin, LOW);    // Turn coil off by making the voltage LOW
+    digitalWrite(relayPin, LOW);    // Relay off
 
-        beep(500);
-        off();
+    for (int x=0; x<10; x++){
+      digitalWrite(buzzPin, HIGH);   // Turn buzzer on
+      delay(100);
+      digitalWrite(buzzPin, LOW);    // Turn buzzer off
+      delay(200);
     }
 
+    beep(500);
+    off();
+  }
+
 }
+
 
 void rechargeBattery() {
-//Charger is plugged
+  //Recharger is pluged
 
-    unsigned long startInterval = millis();
-    int startBatLevel = analogRead((unsigned char)batPin);
+  digitalWrite(powerPin, LOW); // turn power relay off
+  digitalWrite(redPin, HIGH);
+  beep(200);
+  digitalWrite(greenPin, LOW);
 
-    //Turn backlight off
-    delay(5000);
-    digitalWrite(powerPin, LOW); // turn power relay off
+  unsigned long startInterval = millis();
+  int startBatLevel = analogRead((unsigned char)batPin);
 
-    do {
-        if (millis() - startInterval > checkDeltaBatteryIncreasingVoltageTime) {
-            if (analogRead((unsigned char)batPin) - startBatLevel <= 0) { //no increasing voltage
-                //Battery charged
+  do {
+    if ( millis() - startInterval > checkDeltaBatteryIncreasingVoltageTime) {
+      if (analogRead((unsigned char)batPin)-startBatLevel <= 0) { //no inreasing voltage
+        //Battery rechareged
 
-                digitalWrite(powerPin, HIGH);
+        digitalWrite(greenPin, HIGH);
+        beep(200);
+        // ... and charege further.
+        while (1);
+      }
 
-                beep(200);
-                delay(5000);
-                digitalWrite(powerPin, LOW);
-                // ... and charging further.
-                while (1);
-            }
-
-            //Start new charging period with new values
-            startInterval = millis();
-            startBatLevel = analogRead((unsigned char)batPin);
-        }
-    } while (1); //forever loop
+      //Start new charging period with new values
+      startInterval = millis();
+      startBatLevel = analogRead((unsigned char)batPin);
+    }
+  }  while (1); //forever loop
 }
+
 
 
 void serialEvent() {
