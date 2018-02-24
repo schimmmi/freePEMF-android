@@ -11,6 +11,8 @@
 #include <Arduino.h>
 #include <EEPROM.h>
 #include "freePEMF_prog.h"
+#include <TimerOne.h>
+
 
 //Pin definition
 #define coilPin 5      // Coil driver IRF510
@@ -38,14 +40,14 @@
 #define PROGRAM_BUFFER 500  // SRAM buffer size, used for script loading
 #define MAX_CMD_PARAMS 3    // Count of command params
 #define MIN_FREQ_OUT 1      //  0.01 Hz
-#define MAX_FREQ_OUT 5000   // 50.00 Hz
+#define MAX_FREQ_OUT 12000000   // 50.00 Hz
 #define SCAN_STEPS 100      // For scan function puropose - default steps
 #define XON 17  //0x11
 #define XOFF 19 //0x13
 
 
 #define FREQ_MIN 1                    // 0.01 Hz
-#define FREQ_MAX 90000000            // 900kHz
+#define FREQ_MAX 12000000            // 120kHz
 #define FREQ_MAX_PERIOD 1800        //Maximum duration of freq function in seconds
 
 
@@ -131,7 +133,7 @@ void beep(unsigned int period);
 
 //void freq(unsigned long Freq, unsigned int period);
 
-void rec(unsigned int Freq, unsigned long period);  //deprecated
+void rec(unsigned long Freq, unsigned long period);  //deprecated
 
 int bat();
 
@@ -267,8 +269,8 @@ int executeCmd(String cmdLine) {
         delay(param[1].toInt());
     } else if (param[0] == "freq" || param[0] == "rec" || param[0] == "sin") {
 // Generate sinus or rectangle signal - freq [freq] [time_sec]
-        l = param[1].toInt();
-        i = param[2].toInt();
+        l = param[1].toDouble();
+        i = param[2].toDouble();
         if (l && i) {
             rec(
                     constrain(l, FREQ_MIN, FREQ_MAX),
@@ -279,8 +281,8 @@ int executeCmd(String cmdLine) {
 // Scan from lastFreq  - scan [freq to] [time_ms]
         //scan(param[1].toInt(), param[2].toInt());
         //TODO: lastFreq and Freq change to one
-        l = param[1].toInt();
-        i = param[2].toInt();
+        l = param[1].toDouble();
+        i = param[2].toDouble();
         if (l && i) {
             scan(
                     constrain(l, FREQ_MIN, FREQ_MAX),
@@ -726,81 +728,122 @@ void scan(unsigned long freq, unsigned int period) {
 }
 
 
-void rec(unsigned int freq, unsigned long period) {
+
+
+void beepShort() {
+    beep(100);
+}
+
+void beepNormal() {
+    beep(200);
+}
+
+void beepLong() {
+    beep(500);
+}
+
+void switchCoilState() {
+    coilState ^= 1;
+}
+
+
+void verifyBatteryLevel() {
+
+    if (analogRead((unsigned char) batPin) < minBatteryLevel) {
+        //Emergency turn off
+        Serial.println();
+        Serial.print(F("Error: battery too low:"));
+        Serial.println(bat());
+
+        // red LED on
+        digitalWrite(redPin, HIGH);
+        digitalWrite(greenPin, LOW);
+
+        // Turn all off
+        digitalWrite(coilPin, LOW);    // Turn coil off by making the voltage LOW
+        digitalWrite(relayPin, LOW);    // Relay off
+
+        for (int x = 0; x < 10; x++) {
+            digitalWrite(buzzPin, HIGH);   // Turn buzzer on
+            delay(100);
+            digitalWrite(buzzPin, LOW);    // Turn buzzer off
+            delay(200);
+        }
+        beepLong();
+        off();
+    }
+
+}
+
+void callback() {
+    switchCoilState();
+    digitalWrite(greenPin, coilState);
+    digitalWrite(coilPin, coilState);
+}
+
+void rec(unsigned long freq, unsigned long period) {
     //Rectangle signal generate, freq=783 for 7.83Hz, period in secounds
 
     lastFreq = constrain(freq, MIN_FREQ_OUT, MAX_FREQ_OUT); //For scan() function puropose
+    unsigned long interval = (unsigned long) (50000000 / lastFreq);
 
-    unsigned long interval = 50000 / constrain(freq, MIN_FREQ_OUT, MAX_FREQ_OUT);
-    unsigned long timeUp = millis() + (period * 1000);
 
-    unsigned long serialStartPeriod = millis();
-    unsigned long startInterval = millis();
-    unsigned long pausePressed;
+    Serial.println();
+    Serial.print(F("lastFreq: "));
+    Serial.println(lastFreq);
 
-    while (millis() < timeUp) {
+    Serial.println();
+    Serial.print(F("interval: "));
+    Serial.println(interval);
+
+
+    FPTimer timer;
+    FPTimer secondCounter;
+    unsigned long timeUp = period * 1000;
+
+    Timer1.initialize(interval);
+    Timer1.attachInterrupt(callback);
+
+    while (timer.isTicking(timeUp)) {
         //time loop
 
-        if ((millis() - startInterval) >= interval) {
-
-            //Save start time interval
-            startInterval = millis();
-
-            if (coilState == LOW) {
-                coilState = HIGH;
-            } else {
-                coilState = LOW;
-            }
-
-            digitalWrite(coilPin, coilState);   // turn coil on/off
-            digitalWrite(greenPin, coilState);   // turn LED on/off
-        }
-
-        checkBattLevel(); //If too low then off
-
         //TODO serial break command - mark @
-
         if (pause) {
             //Pause - button pressed
-
-            pausePressed = millis();
-            beep(200);
+            fpTimer.resetTimer();
+            beepNormal();
             digitalWrite(coilPin, LOW);     // turn coil ooff
             digitalWrite(greenPin, HIGH);   // turn LED on
-
             while (pause) {
                 //wait pauseTimeOut or button pressed
-                if (millis() > pausePressed + pauseTimeOut) {
-                    beep(500);
+                if (fpTimer.checkPauseTimeout()) {
+                    beepLong();
                     off();
                 }
             }
-            beep(200);
-
+            beepNormal();
             //Correct working time
-            timeUp += millis() - pausePressed;
-            startInterval += millis() - pausePressed;
-
-
+            timeUp += millis() - fpTimer.getTimerValue();
             //Continue
             digitalWrite(coilPin, coilState);    // turn coil on
             digitalWrite(greenPin, coilState);   // turn LED on/
         }
 
-
-        //count each second
-        if (millis() - serialStartPeriod >= 1000) { //one second
-
-#ifdef SERIAL_DEBUG
-            Serial.print('.');
-#endif
-            serialStartPeriod = millis();
+        //count each secondCounter
+        if (secondCounter.checkTimeout(1000)) {  //count each secondCounter
+        	Serial.print(F("."));
+            secondCounter.resetTimer();
+            verifyBatteryLevel(); //If too low then off
         }
     }
-    digitalWrite(coilPin, LOW);     // turn coil off
-    digitalWrite(greenPin, HIGH);   // turn LED on
+    Serial.println();
 
+    Timer1.detachInterrupt();
+    digitalWrite(coilPin, LOW);
+    digitalWrite(coilPin, coilState);     // turn coil off
+    digitalWrite(greenPin, HIGH);   // turn LED on
 }
+
 
 
 /***************** bioZAP functions end *************************/
