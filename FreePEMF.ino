@@ -103,7 +103,7 @@ void setup() {
   startInterval = millis();
   while (digitalRead(btnPin)==HIGH){
     if ( millis() > ( startInterval + btnTimeOut ) ) {
-      programNo = 4; //Coil measurement test 
+      programNo = 5; //Coil measurement test
       digitalWrite(redPin, HIGH);
       
     }
@@ -128,13 +128,13 @@ void setup() {
     // not PC option (programNo>0)
     //Program select  
     unsigned long startInterval = millis();
-    while(((millis()-startInterval) < btnTimeOut) && programNo!=4){
+    while(((millis()-startInterval) < btnTimeOut) && programNo!=5){
       if (digitalRead(btnPin)) {  
           //Reset start moment after btn preesed
           startInterval = millis();
                 
           programNo++;
-          if (programNo>3) programNo=1;
+          if (programNo>4) programNo=1;
           for (int p=programNo; p>0; p--){
             //Signals count
             beep(80); delay(150);
@@ -203,8 +203,12 @@ void loop() {
     // Antistress & meditation (without feedback)
     	executeCmd("prog 3\n");
     	break;
-
     case 4:
+    // Pineal gland
+    	executeCmd("prog 4\n");
+    	break;
+
+    case 5:
       digitalWrite(redPin, LOW);
       while(1) {
         checkBattLevel(); //If too low then off
