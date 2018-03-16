@@ -19,4 +19,4 @@ New software version includes:
 3. jump and labels support
 4. freq function
 5. Decimal char suport eg. **freq 7.83 180** insted of 783 for Schumann frequency
-6. More see on page: [https://biotronika.pl/en/bioZAP] (https://biotronika.pl/en/bioZAP)
+6. More see on page: https://biotronika.pl/en/bioZAP
