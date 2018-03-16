@@ -15,8 +15,8 @@ See: [biotronika.pl](https://biotronika.pl)
 ### 2018-02-22
 New software version includes:
 1. PWM generating signal up to 10kHz
-2. 4th standard program for activation a pineal gland (15min.)
+2. 4th standard program for a pineal gland activation (15min.)
 3. jump and labels support
 4. freq function
 5. Decimal char suport eg. **freq 7.83 180** insted of 783 for Schumann frequency
-6. More see on page: https://biotronika.pl/en/bioZAP
+6. More? See on page: https://biotronika.pl/en/bioZAP in a while.
