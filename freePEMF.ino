@@ -4,7 +4,7 @@
 //#define SERIAL_DEBUG
 
 
-#define HRDW_VER "NANO 5.0"
+#define HRDW_VER "NANO 4.2"
 #define SOFT_VER "2018-02-22"
 #include "freePEMF_func.h"
 
