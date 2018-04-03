@@ -12,6 +12,7 @@
 #include <EEPROM.h>
 #include "freePEMF_prog.h"
 #include <TimerOne.h>
+#include "FPTimer.h"
 
 
 //Pin definition
