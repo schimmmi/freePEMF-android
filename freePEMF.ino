@@ -5,7 +5,7 @@
 
 
 #define HRDW_VER "NANO 4.2"
-#define SOFT_VER "2018-02-22"
+#define SOFT_VER "2018-04-07"
 #include "freePEMF_func.h"
 
 
