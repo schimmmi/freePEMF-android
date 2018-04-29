@@ -56,7 +56,6 @@ const char internalProgram[] PROGMEM   = {
 		"scan 100 240\n"
 		"beep 500\n"
 		"off \n"
-		"@"
 
         ":4\n"
 		"#Pineal gland 15m\n"
