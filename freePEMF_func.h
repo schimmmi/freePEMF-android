@@ -797,6 +797,11 @@ void rec(unsigned long freq, unsigned long period) {
     Serial.println(interval);
 
 
+    if (lastFreq < freq) {
+    	Serial.print(F("too high frequency!"));
+    	return;
+    }
+
     FPTimer timer;
     FPTimer secondCounter;
     unsigned long timeUp = period * 1000;
