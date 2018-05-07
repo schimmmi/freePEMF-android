@@ -818,6 +818,8 @@ void rec(unsigned long freq, unsigned long period) {
             //Pause - button pressed
             fpTimer.resetTimer();
             beepNormal();
+
+            Timer1.detachInterrupt();
             digitalWrite(coilPin, LOW);     // turn coil ooff
             digitalWrite(greenPin, HIGH);   // turn LED on
             while (pause) {
@@ -833,6 +835,8 @@ void rec(unsigned long freq, unsigned long period) {
             //Continue
             digitalWrite(coilPin, coilState);    // turn coil on
             digitalWrite(greenPin, coilState);   // turn LED on/
+
+            Timer1.attachInterrupt(callback);
         }
 
         //count each secondCounter
