@@ -1,11 +1,11 @@
 // free-PEMF See: biotronika.pl  biotronics.eu
-// Chris Czoba (c) krzysiek@biotronika.pl
+// Chris Czoba (krzysiek@biotronika.pl) & hehaka
 
 //#define SERIAL_DEBUG
 
 
 #define HRDW_VER "NANO 4.2"
-#define SOFT_VER "2018-04-07"
+#define SOFT_VER "2018-05-07"
 #include "freePEMF_func.h"
 
 
