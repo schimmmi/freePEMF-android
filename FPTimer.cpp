@@ -37,3 +37,14 @@ unsigned long FPTimer::getTimerValue() {
 bool FPTimer::isTicking(unsigned long time) {
     return  (millis() - startIntervalA <= time);
 }
+
+unsigned long FPTimer::getElapsedTime() {
+  double seconds = (millis() - startIntervalA) /1000; 
+  return  (unsigned long) seconds;
+}
+
+void FPTimer::addPause(unsigned long pauseTime) {
+   startIntervalA += pauseTime;
+}
+
+

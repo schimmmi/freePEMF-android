@@ -16,7 +16,11 @@ public:
 
     bool isTicking(unsigned long time);
 
+    
+    void addPause(unsigned long pauseTime);
+    
     unsigned long getTimerValue();
+    unsigned long getElapsedTime();
 
 private:
     unsigned long startIntervalA;    // For unused timeout off.
