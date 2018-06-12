@@ -4,7 +4,7 @@
 //#define SERIAL_DEBUG
 
 #define HRDW_VER "NANO 4.2"
-#define SOFT_VER "2018-06-06"
+#define SOFT_VER "2018-06-12"
 #include "freePEMF_func.h"
 
 void btnEvent() {
