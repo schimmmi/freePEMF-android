@@ -62,6 +62,9 @@
 #define  COMMAND_ON  "on"
 #define  COMMAND_DEVICE  "device"
 
+#define COMMAND_RESTART "restart"
+#define COMMAND_PWM "pwm"
+#define COMMAND_OUT "out"
 #define COMMAND_FREQ "freq"
 #define COMMAND_SIN "sin"
 #define COMMAND_JUMP "jump"
@@ -107,6 +110,7 @@ const unsigned long checkDeltaBatteryIncreasingVoltageTime = 600000UL; // During
 const unsigned long pauseTimeOut = 600000UL; // 600000 Time of waiting in pause state as turn power off. (60000 = 1 min.)
 const unsigned int btnTimeOut = 5000UL; // Choose therapy program time out. Counted form released button.
 byte coilState = LOW;
+byte pwmValue = 100;
 
 volatile boolean pause = false; // true = pause on
 volatile boolean goToLoop = false; // true = exit to the main loop 
@@ -180,8 +184,12 @@ int jump(int labelNumber, int &adr);
 void serialEvent();
 
 String getCommand();
+
 void printProgramLenght();
 
+void restartProgram(int prog);
+
+void switchCoilState();
 ///////////////////////////// bioZAP functions ///////////////////////////////
 
 void response(String _command) {
@@ -362,6 +370,23 @@ int executeCmd(String cmdLine) {
 		response(RESPONSE_STATUS_READY);
 	} else if (param[0] == COMMAND_ON) {
 		response(RESPONSE_STATUS_READY);
+	} else if (param[0] == COMMAND_RESTART) {
+		restartProgram(programNo);
+	} else if (param[0] == COMMAND_PWM) {
+		pwmValue = param[1].toInt();
+	} else if (param[0] == COMMAND_OUT) {
+
+		if (param[1].length() == 1) {
+			if (param[1].charAt(0) == '~') {
+				switchCoilState();
+			} else if (param[1].toInt() == 0) {
+				coilState = LOW;
+			} else {
+				coilState = HIGH;
+			}
+			digitalWrite(coilPin, coilState);
+		}
+
 	} else {
 //Unknown command
 		if (pcConnection)
@@ -660,15 +685,7 @@ int readLabelPointers(int prog) {
 	return 0;
 }
 
-void exe(int &adr, int prog) {
-//Execute program
-	if (goToLoop) {
-		return;
-	}
-
-	functionTimer.resetTimer();
-	int endLine;
-
+void restartProgram(int prog) {
 	//First time of internal program call
 	if (!adr && (prog > 0)) {
 		adr = readLabelPointers(prog);
@@ -678,6 +695,18 @@ void exe(int &adr, int prog) {
 	}
 
 	getProgramLenght(adr, prog);
+}
+
+void exe(int &adr, int prog) {
+//Execute program
+	if (goToLoop) {
+		return;
+	}
+
+	functionTimer.resetTimer();
+	int endLine;
+
+	restartProgram(prog);
 
 	do {
 
@@ -806,7 +835,9 @@ void wait(unsigned long period) {
 		//count each second
 		if (millis() - serialStartPeriod >= 1000) {
 			if (!goToLoop)
-				checkPause();
+				if (checkPause()) {
+					break;
+				}
 #ifdef SERIAL_DEBUG
 
 			Serial.print('.');
@@ -832,7 +863,7 @@ void beep(unsigned int period) {
 		//count each second
 		if (millis() - serialStartPeriod >= 1000) { //one second
 #ifdef SERIAL_DEBUG
-			Serial.print('.');
+				Serial.print('.');
 #endif
 			serialStartPeriod = millis();
 		}
@@ -936,6 +967,8 @@ void rec(unsigned long freq, unsigned long period) {
 	unsigned long timeUp = period * 1000;
 
 	Timer1.initialize(interval);
+	int localPwm = (1024 * pwmValue) / 100;
+	Timer1.pwm(coilPin, localPwm);
 	Timer1.attachInterrupt(callback);
 
 	while (timer.isTicking(timeUp) & !goToLoop) {
