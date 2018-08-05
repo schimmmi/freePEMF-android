@@ -21,4 +21,4 @@ New software version includes:
 5. Decimal char suport eg. **freq 7.83 180** insted of 783 for Schumann frequency
 6. More? See on page: https://biotronika.pl/en/bioZAP in a while.
 
-[Bluetooth connection](/wiki/Bluetooth-connection)
+See:[Bluetooth connection] (https://github.com/biotronika/freePEMF/wiki/Bluetooth-connection)
