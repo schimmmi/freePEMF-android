@@ -12,6 +12,9 @@ See: [biotronika.pl](https://biotronika.pl)
 7. Configure serial port. Plug USB cable to PC and freePEMF, and Tolls->Port->select right COM port.
 8. Compile and upload. Sketch->Upload. Wait until on down side of Arduino IDE window see **Done uploading**.
 
+### 2018-10-21
+bioZAP script langauage manual: [bioZAP 2018-10-21 EN.pdf](https://biotronika.pl/sites/default/files/2018-10/bioZAP%202018-10-21%20EN.pdf)
+
 ### 2018-02-22
 New software version includes:
 1. PWM generating signal up to 10kHz
