@@ -1,6 +1,6 @@
 # freePEMF
 
-See: [biotronika.pl](https://biotronika.pl)
+See: [biotronics.eu](https://biotronics.eu)
 
 ### To compile code and upload using Arduino IDE:
 1. Download files and put all of them into freePEMF folder (it must has exactly that name). 
