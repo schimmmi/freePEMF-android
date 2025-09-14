@@ -1,27 +1,28 @@
-# freePEMF
+# freePEMF (Android/Arduino sketch)
 
-See: [biotronics.eu](https://biotronics.eu)
+Home: biotronics.eu (archived) / biotronika.pl
 
-### To compile code and upload using Arduino IDE:
-1. Download files and put all of them into freePEMF folder (it must has exactly that name). 
-2. Open freePEMF.ino file in Arduino IDE.
-3. Install TimerOne library in Arduino (Sketch->Include Library->Add ZIP. Library..., and point at proper zip file).
-4. Check if you have EEPROM libraries already installed (Sketch->Include Library-> see on list: EEPROM).
-5. Configure board (Tools->Board->Arduino Nano)  (Tools->Processor->ATmega328).
-6. Install Arduino Nano driver - **biotronika.pl** website: [CH341SER.ZIP]( https://biotronika.pl/sites/default/files/2016-12/CH341SER.ZIP).
-7. Configure serial port. Plug USB cable to PC and freePEMF, and Tolls->Port->select right COM port.
-8. Compile and upload. Sketch->Upload. Wait until on down side of Arduino IDE window see **Done uploading**.
+### How to compile and upload with Arduino IDE
+1. Download this folder and keep the name exactly: freePEMF.
+2. Open freePEMF.ino in Arduino IDE.
+3. Install TimerOne library: Sketch -> Include Library -> Add .ZIP Library... and select the provided ZIP.
+4. Ensure EEPROM library is available: Sketch -> Include Library -> verify EEPROM is listed.
+5. Select board: Tools -> Board -> Arduino Nano; Processor: ATmega328P.
+6. Install the CH341 USB-Serial driver if needed: CH341SER.ZIP (original link on biotronika.pl; use a trusted source or archived copy if unavailable).
+7. Select serial port: Tools -> Port -> choose the correct COM port after connecting via USB.
+8. Upload: Sketch -> Upload. Wait for “Done uploading”.
 
-### 2018-10-21
-bioZAP script langauage manual: [bioZAP 2018-10-21 EN.pdf](https://biotronika.pl/sites/default/files/2018-10/bioZAP%202018-10-21%20EN.pdf)
+### Documentation
+- bioZAP script language manual (2018-10-21): the original link was hosted on biotronika.pl. If it is down, use a web archive mirror or the documentation folder in this repo.
 
-### 2018-02-22
+### Notes (2018-02-22 release)
 New software version includes:
-1. PWM generating signal up to 10kHz
-2. 4th standard program for a pineal gland activation (15min.)
+1. PWM signal generation up to 10 kHz
+2. 4th standard program for pineal gland activation (15 min)
 3. jump and labels support
 4. freq function
-5. Decimal char suport eg. **freq 7.83 180** insted of 783 for Schumann frequency
-6. More? See on page: https://biotronika.pl/en/bioZAP in a while.
+5. Decimal separator support, e.g., "freq 7.83 180" instead of 783 for Schumann frequency
+6. More info: see bioZAP page (archived) on biotronika.pl
 
-See: freePEMF android smartphon bluetooth connection https://github.com/biotronika/freePEMF/wiki/Bluetooth-connection
+See also: freePEMF Android smartphone Bluetooth connection:
+https://github.com/biotronika/freePEMF/wiki/Bluetooth-connection
