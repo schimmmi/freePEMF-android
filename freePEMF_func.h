@@ -308,7 +308,7 @@ int executeCmd(String cmdLine) {
 		beep(param[1].toInt());
 
 	} else if (param[0] == COMMAND_PIN3) {
-// Socket pin3 <state> If ną state pin3 = !pin3
+// Socket pin3 <state>. If '~' then toggle pin3 (pin3 = !pin3); otherwise set to 0 or 1
 		if (param[1].length() == 1) {
 			if (param[1].charAt(0) == '~') {
 				if (pin3)
